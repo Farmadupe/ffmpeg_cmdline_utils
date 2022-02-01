@@ -1,6 +1,7 @@
 use std::{
     ffi::OsStr,
     io::prelude::*,
+    os::windows::process::CommandExt,
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
 };
@@ -131,7 +132,7 @@ impl FfmpegFrameReaderBuilder {
         args.extend(num_frames_arg);
 
         #[rustfmt::skip]
-        args.extend([
+        args.extend(&[
             OsStr::new("-pix_fmt"),  OsStr::new("rgb24"),
             OsStr::new("-c:v"),      OsStr::new("rawvideo"),
             OsStr::new("-f"),        OsStr::new("image2pipe"),
@@ -157,7 +158,7 @@ impl FfmpegFrameReaderBuilder {
 }
 
 pub fn get_video_stats<P: AsRef<Path>>(src_path: P) -> Result<String, FfmpegErrorKind> {
-    let args = [
+    let args = &[
         OsStr::new("-v"),
         OsStr::new("quiet"),
         OsStr::new("-show_format"),
@@ -167,7 +168,7 @@ pub fn get_video_stats<P: AsRef<Path>>(src_path: P) -> Result<String, FfmpegErro
         OsStr::new(src_path.as_ref()),
     ];
 
-    let stdout = run_ffmpeg_command(Ffprobe, &args, true)?.stdout;
+    let stdout = run_ffmpeg_command(Ffprobe, args, true)?.stdout;
 
     String::from_utf8(stdout).map_err(|_| Utf8Conversion)
 }
@@ -177,7 +178,7 @@ pub fn is_video_file<P: AsRef<Path>>(src_path: P) -> Result<bool, FfmpegErrorKin
         //"ffprobe -v error -select_streams v -show_entries stream=codec_type,codec_name,duration -of compact=p=0:nk=1 {}"
 
         #[rustfmt::skip]
-        let args = [
+        let args = &[
             OsStr::new("-v"),              OsStr::new("error"),
             OsStr::new("-select_streams"), OsStr::new("v"),
             OsStr::new("-show_entries"),   OsStr::new("stream=codec_type,codec_name,duration"),
@@ -185,11 +186,7 @@ pub fn is_video_file<P: AsRef<Path>>(src_path: P) -> Result<bool, FfmpegErrorKin
             OsStr::new(src_path.as_ref())
         ];
 
-        run_ffmpeg_command(Ffprobe, &args, true).and_then(|output| {
-            String::from_utf8(output.stdout)
-                .map_err(|_| Utf8Conversion)
-                .map(|s| s.trim().to_string())
-        })
+        run_ffmpeg_command(Ffprobe, args, true).and_then(|output| String::from_utf8(output.stdout).map_err(|_| Utf8Conversion).map(|s| s.trim().to_string()))
     }
 
     let streams_string = get_ffprobe_output(src_path.as_ref())?;
@@ -255,18 +252,19 @@ fn spawn_ffmpeg_command(name: FfmpegCommandName, args: &[&OsStr], stderr_null: b
 
     let stderr_cfg = if stderr_null { Stdio::null() } else { Stdio::piped() };
 
-    Command::new(name.as_os_str())
-        .args(args)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(stderr_cfg)
-        .spawn()
-        .map_err(|e| match e.kind() {
-            //shell failed to execute the command. Separate out FileNotFound from all other errors
-            //as by far the most likely cause is ffmpeg is not installed.
-            std::io::ErrorKind::NotFound => FfmpegNotFound,
-            _ => Io(format!("{:?}", e.kind())),
-        })
+    let mut command = Command::new(name.as_os_str());
+    command.args(args).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(stderr_cfg);
+
+    //do not spawn a command window on windows when when in a gui application
+    #[cfg(target_family = "windows")]
+    command.creation_flags(winapi::um::winbase::CREATE_NO_WINDOW);
+
+    command.spawn().map_err(|e| match e.kind() {
+        //shell failed to execute the command. Separate out FileNotFound from all other errors
+        //as by far the most likely cause is ffmpeg is not installed.
+        std::io::ErrorKind::NotFound => FfmpegNotFound,
+        _ => Io(format!("{:?}", e.kind())),
+    })
 }
 
 struct FfmpegOutput {
