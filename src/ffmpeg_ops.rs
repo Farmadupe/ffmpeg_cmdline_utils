@@ -1,10 +1,12 @@
 use std::{
     ffi::OsStr,
     io::prelude::*,
-    os::windows::process::CommandExt,
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
 };
+
+#[cfg(target_family = "windows")]
+use os::windows::process::CommandExt;
 
 use FfmpegCommandName::*;
 use FfmpegErrorKind::*;
