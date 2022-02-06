@@ -6,7 +6,7 @@ use std::{
 };
 
 #[cfg(target_family = "windows")]
-use os::windows::process::CommandExt;
+use std::os::windows::process::CommandExt;
 
 use FfmpegCommandName::*;
 use FfmpegErrorKind::*;
