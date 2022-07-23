@@ -117,14 +117,14 @@ impl VideoFrames {
                             let (mut max_r, mut max_g, mut max_b) = (u8::MIN, u8::MIN, u8::MIN);
                             for (_x, _y, image::Rgb::<u8>([ref r, ref g, ref b])) in strip.pixels() {
                                 #[rustfmt::skip]
-                            let _ = {
-                                if r < &min_r {min_r = *r}
-                                if r > &max_r {max_r = *r}
-                                if g < &min_g {min_g = *g}
-                                if g > &max_g {max_g = *g}
-                                if b < &min_b {min_b = *b}
-                                if b > &max_b {max_b = *b}
-                            };
+                                {
+                                    if r < &min_r {min_r = *r}
+                                    if r > &max_r {max_r = *r}
+                                    if g < &min_g {min_g = *g}
+                                    if g > &max_g {max_g = *g}
+                                    if b < &min_b {min_b = *b}
+                                    if b > &max_b {max_b = *b}
+                                };
                             }
                             let (range_r, range_g, range_b) = (
                                 max_r.saturating_sub(min_r) as u32,
@@ -203,12 +203,14 @@ impl VideoFrames {
         self.frames
             .iter()
             .map(|frame| {
-                let mut png_buf = vec![];
                 let resized = resize(frame, width, height, Lanczos3);
-                image::DynamicImage::ImageRgb8(resized)
-                    .write_to(&mut png_buf, image::ImageOutputFormat::Png)
-                    .unwrap();
-                png_buf.len() as u32
+
+                let mut buf = std::io::Cursor::new(vec![]);
+
+                resized
+                    .write_to(&mut buf, image::ImageOutputFormat::Png)
+                    .map(|()| buf.into_inner().len() as u32)
+                    .unwrap_or_default()
             })
             .sum()
     }
