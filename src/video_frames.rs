@@ -138,8 +138,8 @@ impl VideoFrames {
                 };
 
                 let pix_range = match side {
-                    Left | Right => (0..width),
-                    Top | Bottom => (0..height),
+                    Left | Right => 0..width,
+                    Top | Bottom => 0..height,
                 };
 
                 pix_range.map(pixel_window).take_while(is_letterbox).count() as u32

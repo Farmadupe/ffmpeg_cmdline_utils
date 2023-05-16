@@ -128,12 +128,18 @@ impl VideoInfo {
         // If the video metadata declares that a video is rotated, then FFMPEG will conveniently autorotate
         // each frame for us, however we will have to remember to swap around x and y axis if the rotation is
         // 90 or 270
+        let error_out = |rotation: &str| -> Result<FfmpegVideoRotation, VideoInfoError> {
+            Err(VideoInfoError::ParseIntError(format!(
+                "ffprobe failure. Got unexpected rotation. src_path: {}, {rotation}",
+                src_path.as_ref().display()
+            )))
+        };
+
         let rotation = {
             match streams_of_type(&stats_parsed, "video") {
                 Some(video_streams) => match video_streams.as_slice() {
                     [] => Ok(FfmpegVideoRotation::Rot0),
                     _ => match &video_streams[0]["side_data_list"][0]["rotation"] {
-                        //_ => match &video_streams[0]["tags"]["rotate"] {
                         //rotation not found (most videos)
                         Value::Null => Ok(FfmpegVideoRotation::Rot0),
 
@@ -145,11 +151,7 @@ impl VideoInfo {
                                 Ok(90) => Ok(FfmpegVideoRotation::Rot90),
                                 Ok(180) => Ok(FfmpegVideoRotation::Rot180),
                                 Ok(-90) | Ok(270) => Ok(FfmpegVideoRotation::Rot270),
-                                Ok(_) => panic!(
-                                    "ffprobe failure. Got unexpected rotation. src_path: {}, rotation: {:?}",
-                                    src_path.as_ref().display(),
-                                    rotation
-                                ),
+                                Ok(bad_rot) => error_out(bad_rot.to_string().as_str()),
                                 Err(e) => Err(VideoInfoError::from(e)),
                             }
                         }
@@ -162,25 +164,14 @@ impl VideoInfo {
                                 Some(90) => Ok(FfmpegVideoRotation::Rot90),
                                 Some(180) | Some(-180) => Ok(FfmpegVideoRotation::Rot180),
                                 Some(-90) | Some(270) => Ok(FfmpegVideoRotation::Rot270),
-                                Some(_) => panic!(
-                                    "ffprobe failure. Got unexpected rotation. src_path: {}, rotation: {:?}",
-                                    src_path.as_ref().display(),
-                                    rotation
-                                ),
-                                None => panic!(
-                                    "ffprobe failure. Got unexpected rotation. src_path: {}, rotation: {:?}",
-                                    src_path.as_ref().display(),
-                                    rotation
-                                ),
+                                Some(bad_rot) => error_out(bad_rot.to_string().as_str()),
+                                None => error_out("<ERROR>"),
                             }
                         }
 
-                        _ => {
-                            panic!(
-                                "got invalid json value type. Expected: Number, got: {:?}",
-                                &video_streams[0]["tags"]["rotate"]
-                            )
-                        }
+                        _ => Err(VideoInfoError::JsonError(
+                            "Failed to parse JSON".to_string(),
+                        )),
                     },
                 },
                 None => Ok(FfmpegVideoRotation::Rot0),
@@ -201,9 +192,9 @@ impl VideoInfo {
         let has_audio = match audio_streams {
             None => false,
             Some(audio_streams) => audio_streams.iter().any(|stream| match &stream["codec_type"] {
-                Value::String(codec_type) => codec_type == "audio",
-                _ => false,
-            }),
+                    Value::String(codec_type) => codec_type == "audio",
+                    _ => false,
+                }),
         };
 
         Ok(VideoInfo {

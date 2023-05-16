@@ -1,6 +1,6 @@
 [package]
 name = "ffmpeg_cmdline_utils"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2018"
 license = "MIT OR Apache-2.0"
 description = "Rust wrapper around the commandline interface to FFMPEG. Can be used to read frames from videos into bufrers in rust."
