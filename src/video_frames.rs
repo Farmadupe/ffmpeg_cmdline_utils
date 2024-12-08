@@ -106,16 +106,20 @@ impl VideoFrames {
 
                 let is_letterbox = |strip: &RgbView| -> bool {
                     match colour {
-                        BlackWhite(tol) => strip.pixels().all(|(_x, _y, image::Rgb::<u8>([r, g, b]))| {
-                            let black_enough = r as u32 + g as u32 + b as u32 <= tol * 3;
-                            let white_enough = r as u32 + g as u32 + b as u32 >= (u8::MAX as u32 - tol) * 3;
-                            black_enough || white_enough
-                        }),
+                        BlackWhite(tol) => {
+                            strip.pixels().all(|(_x, _y, image::Rgb::<u8>([r, g, b]))| {
+                                let black_enough = r as u32 + g as u32 + b as u32 <= tol * 3;
+                                let white_enough =
+                                    r as u32 + g as u32 + b as u32 >= (u8::MAX as u32 - tol) * 3;
+                                black_enough || white_enough
+                            })
+                        }
                         _AnyColour(tol) => {
                             //calculate range
                             let (mut min_r, mut min_g, mut min_b) = (u8::MAX, u8::MAX, u8::MAX);
                             let (mut max_r, mut max_g, mut max_b) = (u8::MIN, u8::MIN, u8::MIN);
-                            for (_x, _y, image::Rgb::<u8>([ref r, ref g, ref b])) in strip.pixels() {
+                            for (_x, _y, image::Rgb::<u8>([ref r, ref g, ref b])) in strip.pixels()
+                            {
                                 #[rustfmt::skip]
                                 {
                                     if r < &min_r {min_r = *r}
@@ -169,7 +173,9 @@ impl VideoFrames {
             .map(|frame| frame.view(x, y, width, height).to_image())
             .collect();
 
-        Self { frames: cropped_frames }
+        Self {
+            frames: cropped_frames,
+        }
     }
 
     pub fn resize(&self, width: u32, height: u32) -> Self {
@@ -179,7 +185,9 @@ impl VideoFrames {
             .map(|frame| resize(frame, width, height, Lanczos3))
             .collect();
 
-        Self { frames: resized_frames }
+        Self {
+            frames: resized_frames,
+        }
     }
 
     pub fn into_inner(self) -> Vec<RgbImage> {
@@ -208,7 +216,7 @@ impl VideoFrames {
                 let mut buf = std::io::Cursor::new(vec![]);
 
                 resized
-                    .write_to(&mut buf, image::ImageOutputFormat::Png)
+                    .write_to(&mut buf, image::ImageFormat::Png)
                     .map(|()| buf.into_inner().len() as u32)
                     .unwrap_or_default()
             })
@@ -231,7 +239,9 @@ impl From<VideoFrames> for GrayFramifiedVideo {
             })
             .collect::<Vec<_>>();
 
-        Self { frames: images_gray }
+        Self {
+            frames: images_gray,
+        }
     }
 }
 
