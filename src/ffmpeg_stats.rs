@@ -68,7 +68,8 @@ impl VideoInfo {
         use serde_json::Value;
 
         let stats_string = get_video_stats(&src_path)?;
-        let stats_parsed: Value = serde_json::from_str(&stats_string).map_err(VideoInfoError::from)?;
+        let stats_parsed: Value =
+            serde_json::from_str(&stats_string).map_err(VideoInfoError::from)?;
 
         let duration = &stats_parsed["format"]["duration"];
         let duration = if let Value::String(d) = duration {
@@ -191,7 +192,9 @@ impl VideoInfo {
         let audio_streams = streams_of_type(&stats_parsed, "audio");
         let has_audio = match audio_streams {
             None => false,
-            Some(audio_streams) => audio_streams.iter().any(|stream| match &stream["codec_type"] {
+            Some(audio_streams) => audio_streams
+                .iter()
+                .any(|stream| match &stream["codec_type"] {
                     Value::String(codec_type) => codec_type == "audio",
                     _ => false,
                 }),
